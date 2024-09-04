@@ -1,330 +1,261 @@
 import pygame
 import sys
-import math
 import random
-import time
 
 # Initialize Pygame
 pygame.init()
 
 # Set up the display
-width, height = 800, 600
-screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Wizard's Hat vs Barbarians")
-
-# Wizard hat properties
-wizard_x = width // 2
-wizard_y = height // 2
-wizard_speed = 5
-wizard_size = 80  # Increased size for better visibility
-wand_angle = 0
-
-# Wand properties
-wand_length = 70
-wand_thickness = 8
-
-# Slash wave properties
-slash_waves = []
-wave_speed = 15
-wave_lifetime = 30
-wave_width = 60
-wave_length = 30
-
-# Enemy properties
-enemies = []
-enemy_size = 50
-enemy_speed = 2
-max_enemies = 10
-spawn_interval = 10  # seconds
-last_spawn_time = time.time()
-enemies_to_spawn = 1
-
-# Kill counter
-kill_count = 0
-
-# Game state
-game_over = False
-invincible = False
-
-# Arrow key press counters
-up_arrow_press_count = 0
-down_arrow_press_count = 0
-arrow_press_time = 2  # seconds to press 10 times
-last_arrow_press_time = 0
-
-# Slash animation properties
-current_slash = 0
-slash_duration = 20  # Duration of the slash effect
-slash_angle = 90     # Angle range of the slash
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("The World's Hardest Game Clone")
 
 # Colors
-BLACK = (0, 0, 0)
-GRAY = (128, 128, 128)
-DARK_GRAY = (64, 64, 64)
-SILVER = (192, 192, 192)
-GOLD = (255, 215, 0)
-BLUE = (0, 0, 255)
-RED = (255, 0, 0)
 WHITE = (255, 255, 255)
-BROWN = (139, 69, 19)
-SKIN = (255, 224, 189)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
+GRAY = (128, 128, 128)  # Color for barriers
+
+# Player
+player_size = 30
+player_x = 50
+player_y = HEIGHT // 2
+player_speed = 3
+
+# Enemies
+enemy_size = 50
+enemies = []
+enemy_speed_multiplier = 1
+# Load enemy sprite
+enemy_sprite = pygame.image.load('security.png')
+enemy_sprite = pygame.transform.scale(enemy_sprite, (enemy_size, enemy_size))
+
+# Barriers
+barrier_height = 50  # Height of top and bottom barriers
+barrier_width = 30
+
+# Increase the height of only the spawn barrier
+spawn_barrier_height = 240  # New height for the spawn barrier
+
+# Spawn barrier 2 blocks in front of the player (assuming "in front" means to the right)
+spawn_barrier_x = player_x + 2 * barrier_width
+spawn_barrier_y = player_y - spawn_barrier_height // 2
+spawn_barrier = pygame.Rect(spawn_barrier_x, spawn_barrier_y, barrier_width, spawn_barrier_height)
+
+# Top and Bottom Barriers
+top_barrier = pygame.Rect(0, 100, WIDTH, barrier_height)
+bottom_barrier = pygame.Rect(0, HEIGHT - 150, WIDTH, barrier_height)
+
+# Set a single speed for both groups
+group_speed_x = random.randint(5, 5) * enemy_speed_multiplier
+
+# Spawn 3 enemies on the left side, 1 block apart
+start_y = top_barrier.bottom + 25
+for i in range(3):
+    enemy = pygame.Rect(0, start_y + i * (enemy_size * 2), enemy_size, enemy_size)
+    enemies.append({
+        "rect": enemy, 
+        "speed_x": group_speed_x,
+        "speed_y": 0,
+        "group": "left"
+    })
+
+# Spawn 2 enemies on the right side
+right_start_y = (top_barrier.bottom + bottom_barrier.top) // 2 - enemy_size
+for i in range(2):
+    enemy = pygame.Rect(WIDTH - enemy_size, right_start_y + i * (enemy_size * 2), enemy_size, enemy_size)
+    enemies.append({
+        "rect": enemy, 
+        "speed_x": -group_speed_x,  # Moving in opposite direction
+        "speed_y": 0,
+        "group": "right"
+    })
+
+# Goal
+goal = pygame.Rect(WIDTH - 70, HEIGHT // 2 - 25, 50, 50)
+
+# Font for displaying messages
+font = pygame.font.SysFont(None, 55)
+
+# Confetti class
+class Confetti:
+    def __init__(self):
+        self.particles = []
+        self.colors = [RED, BLUE, GREEN]
+    
+    def generate(self, x, y):
+        self.particles = []  # Clear previous particles
+        for _ in range(1000):  # Create 1000 confetti particles
+            color = random.choice(self.colors)
+            size = random.randint(5, 10)
+            dx = random.uniform(-5, 5)
+            dy = random.uniform(-5, 5)
+            self.particles.append({'x': x, 'y': y, 'dx': dx, 'dy': dy, 'size': size, 'color': color})
+    
+    def update(self):
+        for particle in self.particles:
+            particle['x'] += particle['dx']
+            particle['y'] += particle['dy']
+            particle['dy'] += 0.1  # Gravity effect
+    
+    def draw(self, screen):
+        for particle in self.particles:
+            pygame.draw.circle(screen, particle['color'], (int(particle['x']), int(particle['y'])), particle['size'])
+
+# Button class
+class Button:
+    def __init__(self, x, y, width, height, text, color, text_color):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.color = color
+        self.text_color = text_color
+        self.font = pygame.font.SysFont(None, 32)
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, self.rect)
+        text_surface = self.font.render(self.text, True, self.text_color)
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+
+    def is_clicked(self, pos):
+        return self.rect.collidepoint(pos)
+
+# Initialize confetti
+confetti = Confetti()
+confetti_active = False
+message_displayed = False
+
+# Create a Next Level button (initially hidden)
+next_level_button = Button(WIDTH // 2 - 75, HEIGHT // 2 + 50, 150, 50, "Next Level", GREEN, WHITE)
+
+# Add a level counter
+current_level = 1
 
 # Game loop
-running = True
 clock = pygame.time.Clock()
 
-def draw_wizards_hat(surface, x, y, size):
-    # Hat cone
-    pygame.draw.polygon(surface, BLUE, [
-        (int(x - size/2), int(y + size/2)),
-        (int(x), int(y - size/2)),
-        (int(x + size/2), int(y + size/2))
-    ])
-    
-    # Hat brim
-    pygame.draw.ellipse(surface, BLUE, (int(x - size/1.5), int(y + size/2), int(size*1.33), int(size/4)))
-    
-    # Hat band
-    pygame.draw.rect(surface, GOLD, (int(x - size/2), int(y + size/3), int(size), int(size/10)))
-    
-    # Stars on the hat
-    star_color = GOLD
-    star_size = size // 10
-    for i in range(3):
-        star_x = x - size/3 + (i * size/3)
-        star_y = y
-        pygame.draw.polygon(surface, star_color, [
-            (int(star_x), int(star_y - star_size)),
-            (int(star_x + star_size/4), int(star_y - star_size/4)),
-            (int(star_x + star_size), int(star_y)),
-            (int(star_x + star_size/4), int(star_y + star_size/4)),
-            (int(star_x), int(star_y + star_size)),
-            (int(star_x - star_size/4), int(star_y + star_size/4)),
-            (int(star_x - star_size), int(star_y)),
-            (int(star_x - star_size/4), int(star_y - star_size/4))
-        ])
+def maintain_group_distance(group):
+    for i in range(len(group) - 1):
+        current = group[i]["rect"]
+        next_enemy = group[i + 1]["rect"]
+        distance = next_enemy.top - current.bottom
+        if distance != enemy_size:
+            move = (enemy_size - distance) / 2
+            current.y -= move
+            next_enemy.y += move
 
-def draw_wand(surface, x, y, angle):
-    wand_start_x = x
-    wand_start_y = y + wizard_size // 2  # Start from the bottom of the hat
-    wand_end_x = wand_start_x + math.cos(math.radians(angle)) * wand_length
-    wand_end_y = wand_start_y - math.sin(math.radians(angle)) * wand_length
-    
-    # Draw wand
-    pygame.draw.line(surface, GOLD, (int(wand_start_x), int(wand_start_y)), (int(wand_end_x), int(wand_end_y)), wand_thickness)
-    
-    # Draw wand tip
-    wand_tip_radius = wand_thickness * 1.5
-    pygame.draw.circle(surface, GREEN, (int(wand_end_x), int(wand_end_y)), wand_tip_radius)
+def display_message(message):
+    text = font.render(message, True, (0, 0, 0))
+    text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    screen.blit(text, text_rect)
 
-def create_slash_wave(x, y, angle):
-    dx = math.cos(math.radians(angle)) * wave_speed
-    dy = -math.sin(math.radians(angle)) * wave_speed
-    return [x, y, dx, dy, wave_lifetime]
-
-def create_enemy():
-    side = random.choice(['top', 'bottom', 'left', 'right'])
-    if side == 'top':
-        x = random.randint(0, width)
-        y = -enemy_size
-    elif side == 'bottom':
-        x = random.randint(0, width)
-        y = height + enemy_size
-    elif side == 'left':
-        x = -enemy_size
-        y = random.randint(0, height)
-    else:  # right
-        x = width + enemy_size
-        y = random.randint(0, height)
-    return [x, y]
-
-def draw_enemy(surface, x, y, size):
-    # Body
-    pygame.draw.rect(surface, BROWN, (int(x - size/3), int(y - size/2), int(size/1.5), int(size/1.2)))
-    
-    # Head
-    pygame.draw.circle(surface, SKIN, (int(x), int(y - size/2)), int(size/4))
-    
-    # Eyes
-    eye_size = size // 10
-    pygame.draw.circle(surface, BLACK, (int(x - size/8), int(y - size/2)), eye_size)
-    pygame.draw.circle(surface, BLACK, (int(x + size/8), int(y - size/2)), eye_size)
-    
-    # Mouth
-    pygame.draw.arc(surface, BLACK, (int(x - size/6), int(y - size/2), int(size/3), int(size/4)), 3.14, 2*3.14, 2)
-    
-    # Arms
-    arm_width = size // 8
-    pygame.draw.line(surface, SKIN, (int(x - size/2), int(y - size/4)), (int(x - size), int(y + size/4)), arm_width)
-    pygame.draw.line(surface, SKIN, (int(x + size/2), int(y - size/4)), (int(x + size), int(y + size/4)), arm_width)
-    
-    # Legs
-    leg_width = size // 6
-    pygame.draw.line(surface, BROWN, (int(x - size/4), int(y + size/3)), (int(x - size/3), int(y + size)), leg_width)
-    pygame.draw.line(surface, BROWN, (int(x + size/4), int(y + size/3)), (int(x + size/3), int(y + size)), leg_width)
-    
-    # Weapon (staff)
-    staff_handle = size // 2
-    staff_head = size // 3
-    pygame.draw.line(surface, DARK_GRAY, (int(x + size), int(y)), (int(x + size + staff_handle), int(y - staff_handle)), 4)
-    pygame.draw.polygon(surface, SILVER, [
-        (int(x + size + staff_handle), int(y - staff_handle)),
-        (int(x + size + staff_handle + staff_head), int(y - staff_handle - staff_head/2)),
-        (int(x + size + staff_handle + staff_head), int(y - staff_handle + staff_head/2))
-    ])
-
-def check_collision(rect1, rect2):
-    return rect1.colliderect(rect2)
-
-while running:
+while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE and current_slash == 0 and not game_over:
-                current_slash = slash_duration
-                slash_waves.append(create_slash_wave(wizard_x, wizard_y, wand_angle))
-            elif event.key == pygame.K_r and game_over:
-                # Reset the game
-                wizard_x = width // 2
-                wizard_y = height // 2
-                enemies = []
-                slash_waves = []
-                kill_count = 0
-                game_over = False
-                last_spawn_time = time.time()
-                enemies_to_spawn = 1
-                invincible = False
-                up_arrow_press_count = 0
-                down_arrow_press_count = 0
-                current_slash = 0  # Reset slash animation
-            elif event.key == pygame.K_UP and not game_over:
-                current_time = time.time()
-                if current_time - last_arrow_press_time <= arrow_press_time:
-                    up_arrow_press_count += 1
-                else:
-                    up_arrow_press_count = 1
-                last_arrow_press_time = current_time
-                if up_arrow_press_count >= 10:
-                    invincible = True
-                    up_arrow_press_count = 0
-            elif event.key == pygame.K_DOWN and not game_over:
-                current_time = time.time()
-                if current_time - last_arrow_press_time <= arrow_press_time:
-                    down_arrow_press_count += 1
-                else:
-                    down_arrow_press_count = 1
-                last_arrow_press_time = current_time
-                if down_arrow_press_count >= 10:
-                    invincible = False
-                    down_arrow_press_count = 0
+            pygame.quit()
+            sys.exit()
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if confetti_active and next_level_button.is_clicked(event.pos):
+                # Reset the game for the next level
+                current_level += 1
+                player_x, player_y = 50, HEIGHT // 2
+                confetti_active = False
+                message_displayed = False
+                
+                # Increase difficulty (e.g., increase enemy speed)
+                enemy_speed_multiplier += 0.5
+                for enemy in enemies:
+                    enemy["speed_x"] = abs(enemy["speed_x"]) * (1 if enemy["speed_x"] > 0 else -1) * enemy_speed_multiplier
 
-    if not game_over:
-        # Handle key presses for movement
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_a]:
-            wizard_x -= wizard_speed
-        if keys[pygame.K_d]:
-            wizard_x += wizard_speed
-        if keys[pygame.K_w]:
-            wizard_y -= wizard_speed
-        if keys[pygame.K_s]:
-            wizard_y += wizard_speed
-
-        # Handle key presses for wand rotation
-        if keys[pygame.K_LEFT]:
-            wand_angle += 5
-        if keys[pygame.K_RIGHT]:
-            wand_angle -= 5
-
-        # Keep the wizard within the screen boundaries
-        wizard_x = max(wizard_size//2, min(width - wizard_size//2, wizard_x))
-        wizard_y = max(wizard_size//2, min(height - wizard_size//2, wizard_y))
-
-        # Update slash animation
-        if current_slash > 0:
-            current_slash -= 1
-
-        # Update slash waves
-        for wave in slash_waves:
-            wave[0] += wave[2]
-            wave[1] += wave[3]
-            wave[4] -= 1
-        slash_waves = [wave for wave in slash_waves if wave[4] > 0]
-
-        # Spawn enemies
-        current_time = time.time()
-        if current_time - last_spawn_time >= spawn_interval and len(enemies) < max_enemies:
-            for _ in range(enemies_to_spawn):
-                enemies.append(create_enemy())
-            last_spawn_time = current_time
-            enemies_to_spawn = min(enemies_to_spawn + 1, max_enemies)
-
-        # Update enemies
-        for enemy in enemies:
-            dx = wizard_x - enemy[0]
-            dy = wizard_y - enemy[1]
-            distance = math.hypot(dx, dy)
-            if distance != 0:
-                enemy[0] += (dx / distance) * enemy_speed
-                enemy[1] += (dy / distance) * enemy_speed
-
-            # Check for collision with wizard
-            if not invincible:
-                wizard_rect = pygame.Rect(wizard_x - wizard_size/2, wizard_y - wizard_size/2, wizard_size, wizard_size)
-                enemy_rect = pygame.Rect(enemy[0] - enemy_size/2, enemy[1] - enemy_size/2, enemy_size, enemy_size)
-                if check_collision(wizard_rect, enemy_rect):
-                    game_over = True
-
-        # Check for collisions between slash waves and enemies
-        for wave in slash_waves:
-            wave_rect = pygame.Rect(wave[0] - wave_length / 2, wave[1] - wave_width / 2, wave_length, wave_width)
-            for enemy in enemies[:]:
-                enemy_rect = pygame.Rect(enemy[0] - enemy_size / 2, enemy[1] - enemy_size / 2, enemy_size, enemy_size)
-                if check_collision(wave_rect, enemy_rect):
-                    enemies.remove(enemy)
-                    kill_count += 1
-
-    # Fill the screen with white
-    screen.fill(WHITE)
-
-    # Draw the wizard's hat
-    draw_wizards_hat(screen, wizard_x, wizard_y, wizard_size)
+    # Player movement
+    keys = pygame.key.get_pressed()
+    new_player_x = player_x
+    new_player_y = player_y
     
-    # Draw the wand
-    if current_slash == 0:
-        draw_wand(screen, wizard_x, wizard_y, wand_angle)
-    else:
-        # Animate the slash
-        slash_progress = (slash_duration - current_slash) / slash_duration
-        current_angle = wand_angle - (slash_angle / 2) + (slash_angle * slash_progress)
-        draw_wand(screen, wizard_x, wizard_y, current_angle)
+    if keys[pygame.K_LEFT]:
+        new_player_x -= player_speed
+    if keys[pygame.K_RIGHT]:
+        new_player_x += player_speed
+    if keys[pygame.K_UP]:
+        new_player_y -= player_speed
+    if keys[pygame.K_DOWN]:
+        new_player_y += player_speed
 
-    # Draw slash waves
-    for wave in slash_waves:
-        wave_angle = math.atan2(-wave[3], wave[2])
-        start_x = wave[0] - math.cos(wave_angle) * wave_length / 2
-        start_y = wave[1] + math.sin(wave_angle) * wave_length / 2
-        end_x = wave[0] + math.cos(wave_angle) * wave_length / 2
-        end_y = wave[1] - math.sin(wave_angle) * wave_length / 2
-        pygame.draw.line(screen, BLUE, (int(start_x), int(start_y)), (int(end_x), int(end_y)), int(wave_width * (wave[4] / wave_lifetime)))
+    # Check collision with barriers and screen edges
+    new_player_rect = pygame.Rect(new_player_x, new_player_y, player_size, player_size)
+    if not (new_player_rect.colliderect(top_barrier) or 
+            new_player_rect.colliderect(bottom_barrier) or
+            new_player_rect.colliderect(spawn_barrier) or  # Check spawn barrier collision
+            new_player_x < 0 or 
+            new_player_x > WIDTH - player_size or
+            new_player_y < 0 or 
+            new_player_y > HEIGHT - player_size):
+        player_x = new_player_x
+        player_y = new_player_y
 
-    # Draw enemies
+    # Update enemy positions and handle collisions
+    left_group = [enemy for enemy in enemies if enemy["group"] == "left"]
+    right_group = [enemy for enemy in enemies if enemy["group"] == "right"]
+
+    # Move and bounce both groups
+    for group in [left_group, right_group]:
+        # Move the group
+        for enemy in group:
+            enemy["rect"].x += enemy["speed_x"]
+        
+        # Bounce the group off screen edges
+        if group[0]["rect"].left <= 0 or group[-1]["rect"].right >= WIDTH:
+            for enemy in group:
+                enemy["speed_x"] = -enemy["speed_x"]
+
+    # Ensure groups maintain 1-block distance
+    maintain_group_distance(left_group)
+    maintain_group_distance(right_group)
+
+    # Keep all enemies within vertical bounds
     for enemy in enemies:
-        draw_enemy(screen, enemy[0], enemy[1], enemy_size)
+        if enemy["rect"].top < top_barrier.bottom:
+            enemy["rect"].top = top_barrier.bottom
+        elif enemy["rect"].bottom > bottom_barrier.top:
+            enemy["rect"].bottom = bottom_barrier.top
 
-    # Draw kill counter
-    font = pygame.font.SysFont(None, 36)
-    kill_text = font.render(f"Kills: {kill_count}", True, BLACK)
-    screen.blit(kill_text, (10, 10))
+    # Check for collisions with player
+    player_rect = pygame.Rect(player_x, player_y, player_size, player_size)
+    if player_rect.collidelist([e["rect"] for e in enemies]) != -1:
+        player_x, player_y = 50, HEIGHT // 2  # Reset player position
 
-    if game_over:
-        game_over_font = pygame.font.SysFont(None, 72)
-        game_over_text = game_over_font.render("Game Over", True, RED)
-        retry_text = font.render("Press 'R' to try again", True, BLACK)
-        screen.blit(game_over_text, (width//2 - game_over_text.get_width()//2, height//2 - game_over_text.get_height()//2))
-        screen.blit(retry_text, (width//2 - retry_text.get_width()//2, height//2 + game_over_text.get_height()))
+    # Check for goal
+    if player_rect.colliderect(goal):
+        if not message_displayed:
+            screen.fill(WHITE)
+            display_message(f"Congratulations! You completed level {current_level}!")
+            pygame.display.flip()
+            pygame.time.wait(2000)
+            message_displayed = True
+            confetti.generate(WIDTH // 2, HEIGHT // 2)
+            confetti_active = True
 
-    if invincible:
-        invincible_text = font.render("Invincible!"), True, GOLD
+    # Draw everything
+    if not confetti_active:
+        screen.fill(WHITE)
+        pygame.draw.rect(screen, BLUE, (player_x, player_y, player_size, player_size))
+        for enemy in enemies:
+            screen.blit(enemy_sprite, enemy["rect"])
+        pygame.draw.rect(screen, GREEN, goal)
+        pygame.draw.rect(screen, GRAY, top_barrier)
+        pygame.draw.rect(screen, GRAY, bottom_barrier)
+        pygame.draw.rect(screen, GRAY, spawn_barrier)  # Draw the spawn barrier
+    else:
+        # Update and draw confetti
+        confetti.update()
+        confetti.draw(screen)
+        
+        # Draw the Next Level button
+        next_level_button.draw(screen)
+
+    # Update the display
+    pygame.display.flip()
+
+    # Cap the frame rate
+    clock.tick(60)

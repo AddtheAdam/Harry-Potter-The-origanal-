@@ -10,7 +10,7 @@ pygame.init()
 # Set up the display
 width, height = 800, 600
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Harry Potter vs Monsters")
+pygame.display.set_caption("Harry Potter vs Bowser's Cursed World 1!")
 
 # Wizard properties
 wizard_x = width // 2
@@ -29,17 +29,17 @@ current_slash = 0
 slash_waves = []
 wave_speed = 15
 wave_lifetime = 30
-wave_width = 60
-wave_length = 30
+wave_width = 6000
+wave_length = 3000
 
 # Monster properties
 monsters = []
-monster_size = 50
+monster_size = 75
 monster_speed = 2
-max_monsters = 10
-spawn_interval = 5  # seconds
+max_monsters = 10000
+spawn_interval = 0.001  # seconds
 last_spawn_time = time.time()
-monsters_to_spawn = 1
+monsters_to_spawn = 2
 
 # Kill counter
 kill_count = 0
@@ -50,13 +50,13 @@ high_score = 0
 game_over = False
 invincible = False
 
-# Thunderbolt properties
-thunderbolt_active = False
-thunderbolt_start_time = 0
-thunderbolt_duration = 2  # Thunderbolt lasts for 2 seconds
-thunderbolt_cooldown = 10  # Thunderbolt cooldown is 10 seconds
-last_thunderbolt_time = 0
-thunderbolt_radius = 100
+# Zues's Mythic Thunderbolt properties
+ZuessMythicThunderbolt_active = False
+ZuessMythicThunderbolt_start_time = 0
+ZuessMythicThunderbolt_duration = 2  # ZuessMythicThunderbolt lasts for 2 seconds
+ZuessMythicThunderbolt_cooldown = 10  # ZuessMythicThunderbolt cooldown is 10 seconds
+last_ZuessMythicThunderbolt_time = 0
+ZuessMythicThunderbolt_radius = 100
 
 # Arrow key press counters
 up_arrow_press_count = 0
@@ -135,37 +135,29 @@ def create_monster():
 
 def draw_monster(surface, x, y, size):
     # Body
-    pygame.draw.circle(surface, (0, 128, 0), (int(x), int(y)), int(size / 2))
+    pygame.draw.circle(surface, BLACK, (int(x), int(y)), int(size / 2))
 
     # Eyes
     eye_size = size // 8
-    pygame.draw.circle(surface, RED, (int(x - size / 4), int(y - size / 4)), eye_size)
-    pygame.draw.circle(surface, RED, (int(x + size / 4), int(y - size / 4)), eye_size)
+    pygame.draw.circle(surface, WHITE, (int(x - size / 4), int(y - size / 4)), eye_size)
+    pygame.draw.circle(surface, WHITE, (int(x + size / 4), int(y - size / 4)), eye_size)
 
     # Mouth
-    pygame.draw.arc(surface, BLACK, (int(x - size / 3), int(y), int(size / 1.5), int(size / 2)), 0, 3.14, 3)
-
-    # Tentacles
-    for i in range(4):
-        angle = i * (360 / 4)
-        end_x = x + math.cos(math.radians(angle)) * (size / 2)
-        end_y = y + math.sin(math.radians(angle)) * (size / 2)
-        pygame.draw.line(surface, (0, 100, 0), (int(x), int(y)), (int(end_x), int(end_y)), 3)
-
+    pygame.draw.arc(surface, WHITE, (int(x - size / 3), int(y), int(size / 1.5), int(size / 2)), 0, 3.14, 3)
 
 def check_collision(rect1, rect2):
     return rect1.colliderect(rect2)
 
 
-def draw_thunderbolt(surface, x, y):
+def draw_ZuessMythicThunderbolt(surface, x, y):
     # Draw thunderbolt as a vertical line
-    pygame.draw.line(surface, PURPLE, (int(x), int(y - thunderbolt_radius)), (int(x), int(y + thunderbolt_radius)), 5)
-    pygame.draw.line(surface, PURPLE, (int(x - 10), int(y - thunderbolt_radius + 20)),
-                     (int(x + 10), int(y - thunderbolt_radius + 20)), 5)
-    pygame.draw.line(surface, PURPLE, (int(x - 10), int(y + thunderbolt_radius - 20)),
-                     (int(x + 10), int(y + thunderbolt_radius - 20)), 5)
-    pygame.draw.line(surface, PURPLE, (int(x - 20), int(y - thunderbolt_radius + 40)),
-                     (int(x + 20), int(y - thunderbolt_radius + 40)), 5)
+    pygame.draw.line(surface, PURPLE, (int(x), int(y - ZuessMythicThunderbolt_radius)), (int(x), int(y + ZuessMythicThunderbolt_radius)), 5)
+    pygame.draw.line(surface, PURPLE, (int(x - 10), int(y - ZuessMythicThunderbolt_radius + 20)),
+                     (int(x + 10), int(y - ZuessMythicThunderbolt_radius + 20)), 5)
+    pygame.draw.line(surface, PURPLE, (int(x - 10), int(y + ZuessMythicThunderbolt_radius - 20)),
+                     (int(x + 10), int(y + ZuessMythicThunderbolt_radius - 20)), 5)
+    pygame.draw.line(surface, PURPLE, (int(x - 20), int(y - ZuessMythicThunderbolt_radius + 40)),
+                     (int(x + 20), int(y - ZuessMythicThunderbolt_radius + 40)), 5)
 
 
 while running:
@@ -212,10 +204,10 @@ while running:
                     down_arrow_press_count = 0
             elif event.key == pygame.K_2 and not game_over:
                 current_time = time.time()
-                if not thunderbolt_active and (current_time - last_thunderbolt_time >= thunderbolt_cooldown):
-                    thunderbolt_active = True
-                    thunderbolt_start_time = current_time
-                    last_thunderbolt_time = current_time
+                if not ZuessMythicThunderbolt_active and (current_time - last_ZuessMythicThunderbolt_time >= ZuessMythicThunderbolt_cooldown):
+                    ZuessMythicThunderbolt_active = True
+                    ZuessMythicThunderbolt_start_time = current_time
+                    last_ZuessMythicThunderbolt_time = current_time
 
     if not game_over:
         # Handle key presses for movement
@@ -268,7 +260,7 @@ while running:
                 monster[1] += (dy / distance) * monster_speed
 
             # Check for collision with wizard
-            if not invincible and not thunderbolt_active:
+            if not invincible and not ZuessMythicThunderbolt_active:
                 wizard_rect = pygame.Rect(wizard_x - wizard_size / 2, wizard_y - wizard_size / 2, wizard_size,
                                           wizard_size)
                 monster_rect = pygame.Rect(monster[0] - monster_size / 2, monster[1] - monster_size / 2, monster_size,
@@ -286,19 +278,19 @@ while running:
                     monsters.remove(monster)
                     kill_count += 1
 
-        # Update thunderbolt status
-        if thunderbolt_active:
-            if current_time - thunderbolt_start_time >= thunderbolt_duration:
-                thunderbolt_active = False
+        # Update ZuessMythicThunderbolt status
+        if ZuessMythicThunderbolt_active:
+            if current_time - ZuessMythicThunderbolt_start_time >= ZuessMythicThunderbolt_duration:
+                ZuessMythicThunderbolt_active = False
             else:
-                # Thunderbolt effect
-                pygame.draw.circle(screen, PURPLE, (int(wizard_x), int(wizard_y)), thunderbolt_radius, 2)
-                # Check for collisions between thunderbolt and monsters
+                # ZuessMythicThunderbolt effect
+                pygame.draw.circle(screen, PURPLE, (int(wizard_x), int(wizard_y)), ZuessMythicThunderbolt_radius, 2)
+                # Check for collisions between ZuessMythicThunderbolt and monsters
                 for monster in monsters[:]:
                     monster_rect = pygame.Rect(monster[0] - monster_size / 2, monster[1] - monster_size / 2,
                                                monster_size, monster_size)
-                    thunderbolt_rect = pygame.Rect(wizard_x - thunderbolt_radius, wizard_y - thunderbolt_radius,
-                                                   thunderbolt_radius * 2, thunderbolt_radius * 2)
+                    thunderbolt_rect = pygame.Rect(wizard_x - ZuessMythicThunderbolt_radius, wizard_y - ZuessMythicThunderbolt_radius,
+                                                   ZuessMythicThunderbolt_radius * 2, ZuessMythicThunderbolt_radius * 2)
                     if check_collision(thunderbolt_rect, monster_rect):
                         monsters.remove(monster)
                         kill_count += 1
@@ -358,8 +350,8 @@ while running:
         invincible_text = font.render("Invincible!", True, GOLD)
         screen.blit(invincible_text, (width - invincible_text.get_width() - 10, 10))
 
-    if thunderbolt_active:
-        thunderbolt_text = font.render("Thunderbolt Active!", True, PURPLE)
+    if ZuessMythicThunderbolt_active:
+        thunderbolt_text = font.render("ZuessMythicThunderbolt Active!", True, GOLD)
         screen.blit(thunderbolt_text, (width - thunderbolt_text.get_width() - 10, 50))
 
     # Update display
